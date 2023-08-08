@@ -33,7 +33,7 @@ function handleInstanceCustomizations() {
          method: 'POST',
          type: 'POST', // For jQuery < 1.9
          success: function(responseText){
-            onCanvasUploaded($(responseText)[0],fp)
+            onCanvasUploaded($(responseText)[0].textContent,fp)
          },
          error: function(msg) {
             log.debug(msg)
@@ -54,7 +54,6 @@ function handleInstanceCustomizations() {
          const heightRegex = /\$draw\(\[.*height:(\d+).*\]\)/;
 
          canvasFPs.forEach((fp) => {
-            console.log("READOLNLY: ",fp.field.fieldDefinition.description.match(readOnlyMatcher))
             if(fp.field.fieldDefinition.description.match(readOnlyMatcher)){
                return
             }
