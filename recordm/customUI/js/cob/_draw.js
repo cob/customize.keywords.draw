@@ -54,7 +54,7 @@ function handleInstanceCustomizations() {
          const heightRegex = /\$draw\(\[.*height:(\d+).*\]\)/;
 
          canvasFPs.forEach((fp) => {
-            if(fp.field.fieldDefinition.description.match(readOnlyMatcher)){
+            if(!instance.isNew() && fp.field.fieldDefinition.description.match(readOnlyMatcher)){
                return
             }
             let id = Date.now().toString();
