@@ -2,14 +2,28 @@
 //main()
 
 function handleInstanceCustomizations() {
-   window.defaultView = null
-   const instanceMap = new Map();
-   let saveBTN;
-   
-   function uploadFile(blob,instance,fp,ui) {
-      var data = new FormData();
-      data.append("file",blob);
+   const imageMatcher = /[$]image(\(.+\))?/;
+   const readOnlyMatcher = /[$]readonly/;
+   const fileMatcher = /[$]file/;
+   const canvasMatcher = /[$]draw/;
 
+   window.defaultView = null
+   const canvasToUploadMap = new Map();
+   let saveBTN;
+   function onCanvasUploaded(responseValue,fp) {
+      fp.setValue(responseValue);
+      canvasToUploadMap.delete(fp.field.fieldDefinition.id)
+      if(canvasToUploadMap.size==0){
+         saveBTN.click()
+      }
+   }
+   function uploadFile(blob,instance,fp,ui,op) {
+      var data = new FormData();
+      if(op=="DELETE"){
+         onCanvasUploaded(null,fp)
+         return;
+      }         
+      data.append("file",blob);
       var request = jQuery.ajax({
          url: `recordm/instances/${instance.data.attachmentPath}/files/${fp.field.fieldDefinition.id}`,
          data: data,
@@ -18,23 +32,16 @@ function handleInstanceCustomizations() {
          processData: false,
          method: 'POST',
          type: 'POST', // For jQuery < 1.9
-         success: function(data){
-            var html = $(data)[0];
-            fp.setValue(html.textContent)
-            instanceMap.delete(fp.field.fieldDefinition.id)
-
-            if(instanceMap.size==0){
-               saveBTN.click()
-            }
+         success: function(responseText){
+            onCanvasUploaded($(responseText)[0],fp)
          },
-         error: function name(msg) {
-            ui.notification.showError(`An error ocurred uploading the drawing image of field ${fp.field.fieldDefinition}`,true);
+         error: function(msg) {
+            log.debug(msg)
+            ui.notification.showError(`An error ocurred while uploading the drawing image of field ${fp.field.fieldDefinition}`,true);
          }
       });
       return request;
    }
-   const fileMatcher = /[$]file/;
-   const canvasMatcher = /[$]canvas/;
 
    cob.custom.customize.push(function (core, utils, ui) {
       core.customizeAllInstances((instance, presenter) => {
@@ -43,10 +50,14 @@ function handleInstanceCustomizations() {
          const canvasFPs = presenter.findFieldPs((fp) => canvasMatcher.exec( fp.field.fieldDefinition.description ) 
          && fileMatcher.exec( fp.field.fieldDefinition.description ));
 
-         const widthRegex = /\$canvas\(\[.*width:(\d+).*\]\)/;
-         const heightRegex = /\$canvas\(\[.*height:(\d+).*\]\)/;
+         const widthRegex = /\$draw\(\[.*width:(\d+).*\]\)/;
+         const heightRegex = /\$draw\(\[.*height:(\d+).*\]\)/;
 
          canvasFPs.forEach((fp) => {
+            console.log("READOLNLY: ",fp.field.fieldDefinition.description.match(readOnlyMatcher))
+            if(fp.field.fieldDefinition.description.match(readOnlyMatcher)){
+               return
+            }
             let id = Date.now().toString();
             const canvasDivParent = $(
                `<div class='dollarDrawingBoard' id=${id}></div>`
@@ -60,14 +71,28 @@ function handleInstanceCustomizations() {
             if(height){
                canvasDivParent.style.height = height
             }
+            let fieldPresenter = fp.content()[0];
 
-            let controlDIV = fp.content()[0].parentElement.querySelector(".controls")
+            let controlDIV = fieldPresenter.querySelector(".controls")
             controlDIV.style.display="none"
+                       
             controlDIV.parentElement.appendChild(canvasDivParent)
 
             let myBoard = new DrawingBoard.Board(id,{droppable:true,webStorage:false});
             myBoard.addControl('Download');
-
+            let imgLink;
+            if(!instance.isNew() 
+            && (imgLink = fp.field.fieldDefinition.description.match(imageMatcher)
+                  ? $(fieldPresenter).find(".link-container a")[0] && $(fieldPresenter).find(".link-container a")[0].href
+                  : null)
+               )
+            {
+               let img = new Image();
+               img.onload = function() {
+                  scaleAndCenterImage(img,myBoard.canvas.getContext("2d"),1)
+               };
+               img.src = imgLink;
+            }
             //CREATE AN UPLOAD BUTTON TO INSERT AN IMAGE TO CANVAS   
             const addImageButton = $(`<div class="drawing-board-control"> 
                <input type="file" id="file_${id}" name="name_${id}">
@@ -91,7 +116,7 @@ function handleInstanceCustomizations() {
                      if( evt.target.readyState == FileReader.DONE) {
                         img.src = evt.target.result;
                         img.onload = ()=>{
-                           scaleAndCenterImage(img,  myBoard.canvas.getContext("2d"))
+                           scaleAndCenterImage(img,  myBoard.canvas.getContext("2d"),0.95)
                            stoppedDrawingHandler()
                         }
                      }
@@ -102,35 +127,45 @@ function handleInstanceCustomizations() {
             }
 
             myBoard.ev.bind('board:reset', ()=>{
-               instanceMap.delete(fp.field.fieldDefinition.id)
+               if(imgLink){
+                  let obj = canvasToUploadMap.get(fp.field.fieldDefinition.id)
+                  if(!obj){
+                     obj = {canvas:myBoard.canvas,instance:instance,fp:fp,op:"DELETE"}
+                     canvasToUploadMap.set(fp.field.fieldDefinition.id,obj)
+                  }
+                  obj.op = "DELETE"
+               }else{
+                  canvasToUploadMap.delete(fp.field.fieldDefinition.id)
+               }
             });
             
             myBoard.ev.bind('board:stopDrawing', ()=>{
                stoppedDrawingHandler()
             });
 
-            function stoppedDrawingHandler() {
-               if(saveBTN==undefined){
-                  saveBTN = document.getElementsByClassName("js-save-instance")[0]
-                  saveBTN.onclick = tbnClickFunc
-               }      
-               if(!instanceMap.has(fp.field.fieldDefinition.id)){
-                  instanceMap.set(fp.field.fieldDefinition.id,{canvas:myBoard.canvas,instance:instance,fp:fp})
+            function stoppedDrawingHandler() {     
+               if(!canvasToUploadMap.has(fp.field.fieldDefinition.id)){
+                  canvasToUploadMap.set(fp.field.fieldDefinition.id,{canvas:myBoard.canvas,instance:instance,fp:fp,op:"POST"})
                }
             }
+            
 
             function tbnClickFunc(e) {
-               if (instanceMap.size > 0){
+               if (canvasToUploadMap.size > 0){
                   e.stopPropagation()
-                  instanceMap.forEach( (v,k) => {
+                  canvasToUploadMap.forEach( (v,k) => {
                      v.canvas.toBlob((blob)=>{
                         const myFile = new File([blob],`drawing_${k}.png`, {
                            type: blob.type,
                         });
-                        uploadFile(myFile,v.instance,v.fp,ui)
+                        uploadFile(myFile,v.instance,v.fp,ui,v.op)
                      })
                   })
                }
+            }
+            if(!saveBTN){
+               saveBTN = document.getElementsByClassName("js-save-instance")[0]
+               saveBTN.onclick = tbnClickFunc 
             }
          });
       })
@@ -145,11 +180,11 @@ function getRegexValue(input,regex) {
    return null;
 }
 
-function scaleAndCenterImage(img, ctx) {
+function scaleAndCenterImage(img, ctx,ratioFactor) {
    var canvas = ctx.canvas ;
    var hRatio = canvas.width  / img.width    ;
    var vRatio =  canvas.height / img.height  ;
-   var ratio  = Math.min ( hRatio, vRatio ) * 0.95;
+   var ratio  = Math.min ( hRatio, vRatio ) * ratioFactor;
    var centerShift_x = ( canvas.width - img.width*ratio ) / 2;
    var centerShift_y = ( canvas.height - img.height*ratio ) / 2;  
    ctx.drawImage(img, 0,0, img.width, img.height,centerShift_x,centerShift_y,img.width*ratio, img.height*ratio);  
