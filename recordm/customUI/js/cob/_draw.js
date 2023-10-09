@@ -77,7 +77,8 @@ function handleInstanceCustomizations() {
                        
             controlDIV.parentElement.appendChild(canvasDivParent)
 
-            let myBoard = new DrawingBoard.Board(id,{droppable:true,webStorage:false});
+            let myBoard = new DrawingBoard.Board(id,{droppable:true,webStorage:false,
+               controls:[{ Navigation: { forward: false, back: false }}]});
             myBoard.addControl('Download');
             let imgLink;
             if(!instance.isNew() 
