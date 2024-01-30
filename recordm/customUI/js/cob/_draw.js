@@ -1,4 +1,4 @@
-      //TODO add the same for touchpads
+//TODO add the same for touchpads
 //main()
 
 function handleInstanceCustomizations() {
@@ -22,7 +22,7 @@ function handleInstanceCustomizations() {
       if(op=="DELETE"){
          onCanvasUploaded(null,fp)
          return;
-      }         
+      }
       data.append("file",blob);
       var request = jQuery.ajax({
          url: `recordm/instances/${instance.data.attachmentPath}/files/${fp.field.fieldDefinition.id}`,
@@ -46,8 +46,8 @@ function handleInstanceCustomizations() {
    cob.custom.customize.push(function (core, utils, ui) {
       core.customizeAllInstances((instance, presenter) => {
          if (presenter.isGroupEdit()) return;
-         
-         const canvasFPs = presenter.findFieldPs((fp) => canvasMatcher.exec( fp.field.fieldDefinition.description ) 
+
+         const canvasFPs = presenter.findFieldPs((fp) => canvasMatcher.exec( fp.field.fieldDefinition.description )
          && fileMatcher.exec( fp.field.fieldDefinition.description ));
 
          const widthRegex = /\$draw\(\[.*width:(\d+).*\]\)/;
@@ -57,10 +57,9 @@ function handleInstanceCustomizations() {
             if(!instance.isNew() && fp.field.fieldDefinition.description.match(readOnlyMatcher)){
                return
             }
+
             let id = Date.now().toString();
-            const canvasDivParent = $(
-               `<div class='dollarDrawingBoard' id=${id}></div>`
-            )[0];
+            const canvasDivParent = $(`<div class='dollarDrawingBoard' id=${id}></div>`)[0];
             let width = getRegexValue(fp.field.fieldDefinition.description,widthRegex)
             let height = getRegexValue(fp.field.fieldDefinition.description,heightRegex)
 
@@ -74,14 +73,15 @@ function handleInstanceCustomizations() {
 
             let controlDIV = fieldPresenter.querySelector(".controls")
             controlDIV.style.display="none"
-                       
             controlDIV.parentElement.appendChild(canvasDivParent)
 
             let myBoard = new DrawingBoard.Board(id,{droppable:true,webStorage:false,
                controls:[{ Navigation: { forward: false, back: false }}]});
             myBoard.addControl('Download');
+
+
             let imgLink;
-            if(!instance.isNew() 
+            if(!instance.isNew()
             && (imgLink = fp.field.fieldDefinition.description.match(imageMatcher)
                   ? $(fieldPresenter).find(".link-container a")[0] && $(fieldPresenter).find(".link-container a")[0].href
                   : null)
@@ -93,7 +93,8 @@ function handleInstanceCustomizations() {
                };
                img.src = imgLink;
             }
-            //CREATE AN UPLOAD BUTTON TO INSERT AN IMAGE TO CANVAS   
+
+            //CREATE AN UPLOAD BUTTON TO INSERT AN IMAGE TO CANVAS
             const addImageButton = $(`<div class="drawing-board-control"> 
                <input type="file" id="file_${id}" name="name_${id}">
                <button class="btn btn-small "> <i class="icon-upload"></i> </button>
@@ -105,7 +106,7 @@ function handleInstanceCustomizations() {
             }
 
             addImageButton.children[0].onchange=(evt)=>{
-               
+
                let img = new Image();
                let file =  evt.target.files[0];
                if(file && file.type.match('image.*')) {
@@ -120,7 +121,7 @@ function handleInstanceCustomizations() {
                            stoppedDrawingHandler()
                         }
                      }
-                  }    
+                  }
                } else {
                   console.debug("File loaded is not an image!")
                }
@@ -138,17 +139,17 @@ function handleInstanceCustomizations() {
                   canvasToUploadMap.delete(fp.field.fieldDefinition.id)
                }
             });
-            
+
             myBoard.ev.bind('board:stopDrawing', ()=>{
                stoppedDrawingHandler()
             });
 
-            function stoppedDrawingHandler() {     
+            function stoppedDrawingHandler() {
                if(!canvasToUploadMap.has(fp.field.fieldDefinition.id)){
                   canvasToUploadMap.set(fp.field.fieldDefinition.id,{canvas:myBoard.canvas,instance:instance,fp:fp,op:"POST"})
                }
             }
-            
+
 
             function tbnClickFunc(e) {
                if (canvasToUploadMap.size > 0){
@@ -165,7 +166,7 @@ function handleInstanceCustomizations() {
             }
             if(!saveBTN){
                saveBTN = document.getElementsByClassName("js-save-instance")[0]
-               saveBTN.onclick = tbnClickFunc 
+               saveBTN.onclick = tbnClickFunc
             }
          });
       })
@@ -186,7 +187,7 @@ function scaleAndCenterImage(img, ctx,ratioFactor) {
    var vRatio =  canvas.height / img.height  ;
    var ratio  = Math.min ( hRatio, vRatio ) * ratioFactor;
    var centerShift_x = ( canvas.width - img.width*ratio ) / 2;
-   var centerShift_y = ( canvas.height - img.height*ratio ) / 2;  
-   ctx.drawImage(img, 0,0, img.width, img.height,centerShift_x,centerShift_y,img.width*ratio, img.height*ratio);  
+   var centerShift_y = ( canvas.height - img.height*ratio ) / 2;
+   ctx.drawImage(img, 0,0, img.width, img.height,centerShift_x,centerShift_y,img.width*ratio, img.height*ratio);
 }
 handleInstanceCustomizations()
