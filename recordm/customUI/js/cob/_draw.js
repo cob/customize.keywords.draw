@@ -91,8 +91,6 @@ function handleInstanceCustomizations() {
       img.src = imageUrl;
    }
 
-
-
    cob.custom.customize.push(function (core, utils, ui) {
       core.customizeAllInstances((instance, presenter) => {
          if (presenter.isGroupEdit()) return;
@@ -206,6 +204,7 @@ function handleInstanceCustomizations() {
                   }
                }
             }
+
 
             function tbnClickFunc(e) {
                if (canvasToUploadMap.size > 0){
