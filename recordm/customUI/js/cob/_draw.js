@@ -91,6 +91,8 @@ cob.custom.customize.push(function (core, utils, ui) {
             fetchAndDrawFile(instance, fp, fp.getValue(), id)
          }
 
+         const isReadOnly = readOnlyMatcher.exec(fp.field.fieldDefinition.description);
+
          const canvasDivParent = $(
             `<div class='dollarDrawingBoard' id=${id}></div>`
          )[0];
@@ -118,89 +120,105 @@ cob.custom.customize.push(function (core, utils, ui) {
             droppable:true,webStorage:false,
             controls:[{ Navigation: { forward: false, back: false }}]});
 
-         let drawing = false;
+         if (isReadOnly) {
+            // Disable drawing completely
+            myBoard.ev.unbind();
 
-         myBoard.ev.bind('board:startDrawing', () => {
-            drawing = true;
-            // Add global listener for mouse release
-            document.addEventListener('mouseup', globalStopHandler);  //in case the user leaves the area without releasing
-         });
-
-         myBoard.ev.bind('board:stopDrawing', () => {
-            //stoped drawing inside of the area 
-            stoppedDrawingHandler()
-         });
-
-         function globalStopHandler() {
-            if (drawing) {
-               //stoped drawing outside of the area 
-               stoppedDrawingHandler();
-               cleanupGlobalHandler();
-            }
-         }
-
-         function cleanupGlobalHandler() {
-            drawing = false;
-            document.removeEventListener('mouseup', globalStopHandler);
-         }
-
-         function stoppedDrawingHandler() { //add the value to the field 
-            let drawing_name = `drawing_${fp.field.fieldDefinition.id}_${id}.png` //use id (timestamp) to update board name
-            if (!canvasToUploadMap.has(fp.field.fieldDefinition.id)){
-               fp.setValue(drawing_name);
-            }
-            canvasToUploadMap.set(fp.field.fieldDefinition.id, { canvas: myBoard.canvas, name: drawing_name, instance: instance, fp: fp, op: "POST" })
-         }
-
-         //erase button (always available)
-         myBoard.ev.bind('board:reset', () => {
-            let drawing_name = `drawing_${fp.field.fieldDefinition.id}_${id}.png` //use id (timestamp) to update board name
-            if (!canvasToUploadMap.has(fp.field.fieldDefinition.id)){
-               fp.setValue(drawing_name);
-            }
-            let obj = { canvas: myBoard.canvas, name: drawing_name, instance: instance, fp: fp, op: "DELETE" }
-            canvasToUploadMap.set(fp.field.fieldDefinition.id, obj)
-         });
-
-         if (options) {//flag options:true so show options
-
-            myBoard.addControl('Download');
-            //add and edit download button
-            const downloadBtn = canvasDivParent.querySelector('.drawing-board-control-download-button');
-            if (downloadBtn) {
-               // add icon
-               downloadBtn.innerHTML = '<i class="fa-solid fa-download"></i>';
+            canvasDivParent.classList.add('readonly');
+            const canvas = canvasDivParent.querySelector("canvas.drawing-board-canvas");
+            if (canvas) {
+               canvas.style.pointerEvents = "none";
+               canvas.style.cursor = "default";
             }
 
-            //CREATE AN UPLOAD BUTTON TO INSERT AN IMAGE TO CANVAS   
-            const addImageButton = $(`<div class="drawing-board-control" style="display: flex; align-items: center; justify-content: center;"> 
-               <input type="file" id="file_${id}" name="name_${id}">
-               <button class="btn btn-small" style="display: flex; align-items: center; justify-content: center;"> <i class="fa-solid fa-file-import"></i> </button>
-            </div>`)[0]
-            canvasDivParent.children[0].appendChild(addImageButton)
-            addImageButton.children[1].onclick=(evt)=>{
-               addImageButton.children[1].blur()
-               addImageButton.children[0].click()
+            const toolbar = canvasDivParent.querySelector(".drawing-board-controls");
+            if (toolbar) toolbar.style.display = "none";
+         } else {
+            
+            let drawing = false;
+
+            myBoard.ev.bind('board:startDrawing', () => {
+               drawing = true;
+               // Add global listener for mouse release
+               document.addEventListener('mouseup', globalStopHandler);  //in case the user leaves the area without releasing
+            });
+
+            myBoard.ev.bind('board:stopDrawing', () => {
+               //stoped drawing inside of the area 
+               stoppedDrawingHandler()
+            });
+
+            function globalStopHandler() {
+               if (drawing) {
+                  //stoped drawing outside of the area 
+                  stoppedDrawingHandler();
+                  cleanupGlobalHandler();
+               }
             }
 
-            addImageButton.children[0].onchange=(evt)=>{
-               let img = new Image();
-               let file =  evt.target.files[0];
-               if(file) {
-                  var reader = new FileReader();
-                  // Read in the image file as a data URL.
-                  reader.readAsDataURL(file);
-                  reader.onload = function(evt){
-                     if( evt.target.readyState == FileReader.DONE) {
-                        img.src = evt.target.result;
-                        img.onload = ()=>{
-                           scaleAndCenterImage(img,  myBoard.canvas.getContext("2d"),0.95)
-                           stoppedDrawingHandler()
+            function cleanupGlobalHandler() {
+               drawing = false;
+               document.removeEventListener('mouseup', globalStopHandler);
+            }
+
+            function stoppedDrawingHandler() { //add the value to the field 
+               let drawing_name = `drawing_${fp.field.fieldDefinition.id}_${id}.png` //use id (timestamp) to update board name
+               if (!canvasToUploadMap.has(fp.field.fieldDefinition.id)){
+                  fp.setValue(drawing_name);
+               }
+               canvasToUploadMap.set(fp.field.fieldDefinition.id, { canvas: myBoard.canvas, name: drawing_name, instance: instance, fp: fp, op: "POST" })
+            }
+
+            //erase button (always available)
+            myBoard.ev.bind('board:reset', () => {
+               let drawing_name = `drawing_${fp.field.fieldDefinition.id}_${id}.png` //use id (timestamp) to update board name
+               if (!canvasToUploadMap.has(fp.field.fieldDefinition.id)){
+                  fp.setValue(drawing_name);
+               }
+               let obj = { canvas: myBoard.canvas, name: drawing_name, instance: instance, fp: fp, op: "DELETE" }
+               canvasToUploadMap.set(fp.field.fieldDefinition.id, obj)
+            });
+
+            if (options) {//flag options:true so show options
+
+               myBoard.addControl('Download');
+               //add and edit download button
+               const downloadBtn = canvasDivParent.querySelector('.drawing-board-control-download-button');
+               if (downloadBtn) {
+                  // add icon
+                  downloadBtn.innerHTML = '<i class="fa-solid fa-download"></i>';
+               }
+
+               //CREATE AN UPLOAD BUTTON TO INSERT AN IMAGE TO CANVAS   
+               const addImageButton = $(`<div class="drawing-board-control" style="display: flex; align-items: center; justify-content: center;"> 
+                  <input type="file" id="file_${id}" name="name_${id}">
+                  <button class="btn btn-small" style="display: flex; align-items: center; justify-content: center;"> <i class="fa-solid fa-file-import"></i> </button>
+               </div>`)[0]
+               canvasDivParent.children[0].appendChild(addImageButton)
+               addImageButton.children[1].onclick=(evt)=>{
+                  addImageButton.children[1].blur()
+                  addImageButton.children[0].click()
+               }
+
+               addImageButton.children[0].onchange=(evt)=>{
+                  let img = new Image();
+                  let file =  evt.target.files[0];
+                  if(file) {
+                     var reader = new FileReader();
+                     // Read in the image file as a data URL.
+                     reader.readAsDataURL(file);
+                     reader.onload = function(evt){
+                        if( evt.target.readyState == FileReader.DONE) {
+                           img.src = evt.target.result;
+                           img.onload = ()=>{
+                              scaleAndCenterImage(img,  myBoard.canvas.getContext("2d"),0.95)
+                              stoppedDrawingHandler()
+                           }
                         }
-                     }
-                  }    
-               } else {
-                  console.debug("File loaded is not an image!")
+                     }    
+                  } else {
+                     console.debug("File loaded is not an image!")
+                  }
                }
             }
          }
