@@ -2,7 +2,6 @@ cob.custom.customize.push(function (core, utils, ui) {
    core.customizeAllInstances((instance, presenter) => {
       if (presenter.isGroupEdit()) return;
 
-      const imageMatcher = /[$]image(\(.+\))?/;
       const readOnlyMatcher = /[$]readonly/;
       const fileMatcher = /[$]file/;
       const canvasMatcher = /[$]draw/;
@@ -10,30 +9,55 @@ cob.custom.customize.push(function (core, utils, ui) {
       const heightRegex = /\$draw\(\[.*height:(\d+).*\]\)/;
       const optionsRegex = /\$draw\(\[.*options:(true|false).*\]\)/;
 
-      window.defaultView = null
       const canvasToUploadMap = new Map();
       let saveBTN;
+
+      //functions for later use
+      function getRegexValue(input,regex) {
+         const match = input.match(regex);
+         if (match) {
+            return `${match[1]}px`;
+         }
+         return null;
+      }
+
+      function getBooleanFlag(input, regex) { //for true/false regex
+      const match = input.match(regex);
+      return match ? match[1] === "true" : false;
+      }
+
+      function scaleAndCenterImage(img, ctx,ratioFactor) {
+         var canvas = ctx.canvas ;
+         var hRatio = canvas.width  / img.width    ;
+         var vRatio =  canvas.height / img.height  ;
+         var ratio  = Math.min ( hRatio, vRatio ) * ratioFactor;
+         var centerShift_x = ( canvas.width - img.width*ratio ) / 2;
+         var centerShift_y = ( canvas.height - img.height*ratio ) / 2;  
+         ctx.drawImage(img, 0,0, img.width, img.height,centerShift_x,centerShift_y,img.width*ratio, img.height*ratio);  
+      }
+
       function uploadFile(blob,instance,fp,ui,op) {
-         canvasToUploadMap.delete(fp.field.fieldDefinition.id)
-         var data = new FormData();
+         canvasToUploadMap.delete(fp.field.fieldDefinition.id);
          if(op=="DELETE"){
             return;
-         }         
+         }
+
+         const data = new FormData();
          data.append("file",blob);
-         var request = jQuery.ajax({
-            url: `recordm/instances/${instance.data.attachmentPath}/files/${fp.field.fieldDefinition.id}`,
-            data: data,
-            cache: false,
-            contentType: false,
-            processData: false,
-            method: 'POST',
-            type: 'POST', // For jQuery < 1.9
-            success: function(responseText){
-            },
-            error: function(msg) {
-               log.debug(msg)
-               ui.notification.showError(`An error ocurred while uploading the drawing image of field ${fp.field.fieldDefinition}`,true);
-            }
+
+         const url = `recordm/instances/${instance.data.attachmentPath}/files/${fp.field.fieldDefinition.id}`;
+
+         fetch(url, {
+            method: "POST",
+            body: data
+         })
+
+         .catch(error => {
+            console.error(error);
+            ui.notification.showError(
+               `An error ocurred while uploading the drawing image of field ${fp.field.fieldDefinition.id}`, 
+               true
+            );
          });
       }
 
@@ -224,7 +248,7 @@ cob.custom.customize.push(function (core, utils, ui) {
          }
 
 
-         function tbnClickFunc(e) {
+         function saveInstanceListener(e) {
             if (canvasToUploadMap.size > 0){
                canvasToUploadMap.forEach( (v,k) => {
                   v.canvas.toBlob((blob)=>{
@@ -238,30 +262,7 @@ cob.custom.customize.push(function (core, utils, ui) {
          }
          const allSaveButtons = document.getElementsByClassName("js-save-instance");
          saveBTN = allSaveButtons[allSaveButtons.length - 1]; //getting the last, to use mobile save button when available
-         saveBTN.addEventListener('click', tbnClickFunc);
+         saveBTN.addEventListener('click', saveInstanceListener);
       });
    })
 });
-
-function getRegexValue(input,regex) {
-   const match = input.match(regex);
-   if (match) {
-      return `${match[1]}px`;
-   }
-   return null;
-}
-
-function getBooleanFlag(input, regex) { //for true/false regex
-  const match = input.match(regex);
-  return match ? match[1] === "true" : false;
-}
-
-function scaleAndCenterImage(img, ctx,ratioFactor) {
-   var canvas = ctx.canvas ;
-   var hRatio = canvas.width  / img.width    ;
-   var vRatio =  canvas.height / img.height  ;
-   var ratio  = Math.min ( hRatio, vRatio ) * ratioFactor;
-   var centerShift_x = ( canvas.width - img.width*ratio ) / 2;
-   var centerShift_y = ( canvas.height - img.height*ratio ) / 2;  
-   ctx.drawImage(img, 0,0, img.width, img.height,centerShift_x,centerShift_y,img.width*ratio, img.height*ratio);  
-}
