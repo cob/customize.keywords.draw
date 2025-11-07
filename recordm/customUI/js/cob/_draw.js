@@ -105,6 +105,42 @@ cob.custom.customize.push(function (core, utils, ui) {
          // Use data URL, not blob:
          img.src = imageUrl;
       }
+
+      let drawing = false;
+
+      function saveInstanceListener(e) {
+         if (canvasToUploadMap.size > 0){
+            canvasToUploadMap.forEach( (v,k) => {
+               v.canvas.toBlob((blob)=>{
+                  const myFile = new File([blob], v.name, {
+                     type: blob.type,
+                  });
+                  uploadFile(myFile,v.instance,v.fp,ui,v.op)
+               })
+            })
+         }
+      }
+
+      function globalStopHandler(fp, id, myBoard) {
+         if (drawing) {
+            //stoped drawing outside of the area 
+            stoppedDrawingHandler(fp, id, myBoard);
+            cleanupGlobalHandler();
+         }
+      }
+
+      function cleanupGlobalHandler() {
+         drawing = false;
+         document.removeEventListener('mouseup', globalStopHandler);
+      }
+
+      function stoppedDrawingHandler(fp, id, myBoard) { //add the value to the field 
+         let drawing_name = `drawing_${fp.field.fieldDefinition.id}_${id}.png` //use id (timestamp) to update board name
+         if (!canvasToUploadMap.has(fp.field.fieldDefinition.id)){
+            fp.setValue(drawing_name);
+         }
+         canvasToUploadMap.set(fp.field.fieldDefinition.id, { canvas: myBoard.canvas, name: drawing_name, instance: instance, fp: fp, op: "POST" })
+      }
       
       const canvasFPs = presenter.findFieldPs((fp) => canvasMatcher.exec( fp.field.fieldDefinition.description ) 
       && fileMatcher.exec( fp.field.fieldDefinition.description ));
@@ -158,40 +194,17 @@ cob.custom.customize.push(function (core, utils, ui) {
             const toolbar = canvasDivParent.querySelector(".drawing-board-controls");
             if (toolbar) toolbar.style.display = "none";
          } else {
-            
-            let drawing = false;
 
             myBoard.ev.bind('board:startDrawing', () => {
                drawing = true;
                // Add global listener for mouse release
-               document.addEventListener('mouseup', globalStopHandler);  //in case the user leaves the area without releasing
+               document.addEventListener('mouseup', globalStopHandler(fp, id, myBoard));  //in case the user leaves the area without releasing
             });
 
             myBoard.ev.bind('board:stopDrawing', () => {
                //stoped drawing inside of the area 
-               stoppedDrawingHandler()
+               stoppedDrawingHandler(fp, id, myBoard)
             });
-
-            function globalStopHandler() {
-               if (drawing) {
-                  //stoped drawing outside of the area 
-                  stoppedDrawingHandler();
-                  cleanupGlobalHandler();
-               }
-            }
-
-            function cleanupGlobalHandler() {
-               drawing = false;
-               document.removeEventListener('mouseup', globalStopHandler);
-            }
-
-            function stoppedDrawingHandler() { //add the value to the field 
-               let drawing_name = `drawing_${fp.field.fieldDefinition.id}_${id}.png` //use id (timestamp) to update board name
-               if (!canvasToUploadMap.has(fp.field.fieldDefinition.id)){
-                  fp.setValue(drawing_name);
-               }
-               canvasToUploadMap.set(fp.field.fieldDefinition.id, { canvas: myBoard.canvas, name: drawing_name, instance: instance, fp: fp, op: "POST" })
-            }
 
             //erase button (always available)
             myBoard.ev.bind('board:reset', () => {
@@ -236,7 +249,7 @@ cob.custom.customize.push(function (core, utils, ui) {
                            img.src = evt.target.result;
                            img.onload = ()=>{
                               scaleAndCenterImage(img,  myBoard.canvas.getContext("2d"),0.95)
-                              stoppedDrawingHandler()
+                              stoppedDrawingHandler(fp, id, myBoard)
                            }
                         }
                      }    
@@ -247,19 +260,6 @@ cob.custom.customize.push(function (core, utils, ui) {
             }
          }
 
-
-         function saveInstanceListener(e) {
-            if (canvasToUploadMap.size > 0){
-               canvasToUploadMap.forEach( (v,k) => {
-                  v.canvas.toBlob((blob)=>{
-                     const myFile = new File([blob], v.name, {
-                        type: blob.type,
-                     });
-                     uploadFile(myFile,v.instance,v.fp,ui,v.op)
-                  })
-               })
-            }
-         }
          const allSaveButtons = document.getElementsByClassName("js-save-instance");
          saveBTN = allSaveButtons[allSaveButtons.length - 1]; //getting the last, to use mobile save button when available
          saveBTN.addEventListener('click', saveInstanceListener);
