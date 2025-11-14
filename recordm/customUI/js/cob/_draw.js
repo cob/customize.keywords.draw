@@ -263,7 +263,7 @@ cob.custom.customize.push(function (core, utils, ui) {
          const allSaveButtons = document.getElementsByClassName("js-save-instance");
          if (allSaveButtons.length > 0){ //if it is readonly, there is no saveButton
             saveBTN = allSaveButtons[allSaveButtons.length - 1]; //getting the last, to use mobile save button when available
-            saveBTN.removeEventListener('click', saveInstanceListener);
+            saveBTN.addEventListener('click', saveInstanceListener);
          }
       });
    })
