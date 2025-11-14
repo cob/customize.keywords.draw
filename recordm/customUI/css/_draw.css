@@ -20,6 +20,7 @@
 
 .drawing-board-canvas-wrapper {
   position: relative;
+  height: 100% !important;
   z-index: 0;
   margin: 0;
   border: 1px solid #ddd
@@ -27,6 +28,7 @@
 
 .drawing-board-canvas {
   position: absolute;
+  height: 100% !important;
   top: 0;
   left: 0;
   width: auto;
@@ -358,4 +360,5 @@
   width: 400px;
   height: 400px;
   margin-top: 15px;
+  margin-bottom: 25px;
 }
